@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Latchwork</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<style>
+  :root {
+    --bg: #140e0a;
+    --bg-2: #1c1410;
+    --panel: #221810;
+    --ink: #f3ead8;
+    --mute: #8d7b68;
+    --line: #3a2c22;
+    --brass: #d4a85a;
+    --brass-dim: #8a6a38;
+    --copper: #e07a45;
+    --copper-deep: #9a4a28;
+    --verd: #3aa68e;
+    --verd-deep: #1e5e52;
+    --lamp: #f6d7a0;
+    --floor: #2a1c14;
+    --wall: #3d2e24;
+    --danger: #c45c48;
+    --ok: #7caf6a;
+    --shadow: rgba(0, 0, 0, 0.45);
+    --pad: max(16px, env(safe-area-inset-left, 16px));
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Source Han Sans SC", "Noto Sans SC", sans-serif;
+    min-height: 100%;
+    padding-block: 0;
+    overflow: hidden;
+  }
+
+  button, input {
+    font-family: inherit;
+    color: inherit;
+  }
+  button {
+    cursor: pointer;
+    border: 0;
+    background: none;
+  }
+  button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--brass);
+    outline-offset: 3px;
+  }
+
+  #app {
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 12px var(--pad) 16px;
+    gap: 10px;
+    max-width: 1040px;
+    margin: 0 auto;
+  }
+
+  header.top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 36px;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+  }
+  .brand h1 {
+    font-family: "Big Shoulders Display", "Arial Narrow", sans-serif;
+    font-weight: 800;
+    font-size: 1.55rem;
+    letter-spacing: 0.06em;
+    margin: 0;
+    text-transform: uppercase;
+    text-wrap: balance;
+    color: var(--lamp);
+  }
+  .brand .sub {
+    color: var(--mute);
+    font-size: 0.78rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .hud-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--mute);
+    font-size: 0.82rem;
+  }
+  .pill {
+    border: 1px solid var(--line);
+    padding: 4px 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    color: var(--brass);
+    background: var(--panel);
+  }
+  .ghost {
+    color: var(--mute);
+    padding: 4px 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+  }
+  .ghost:hover { color: var(--ink); }
+
+  .stage {
+    position: relative;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(212, 168, 90, 0.08), transparent 52%),
+      var(--bg-2);
+    border: 1px solid var(--line);
+    box-shadow: inset 0 0 0 1px rgba(212, 168, 90, 0.08), 0 20px 50px var(--shadow);
+  }
+  canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(16, 10, 7, 0.88);
+  }
+  .overlay[hidden] { display: none !important; }
+
+  .sheet {
+    width: min(420px, 100%);
+    display: grid;
+    gap: 14px;
+  }
+  .sheet h2 {
+    font-family: "Big Shoulders Display", "Arial Narrow", sans-serif;
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    margin: 0;
+    text-transform: uppercase;
+    text-wrap: balance;
+    color: var(--lamp);
+    line-height: 0.95;
+  }
+  .sheet .lede {
+    margin: 0;
+    color: var(--mute);
+    max-width: 36em;
+    line-height: 1.55;
+  }
+  .actions {
+    display: grid;
+    gap: 8px;
+  }
+  .btn {
+    background: var(--brass);
+    color: #1a120c;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 0.82rem;
+    padding: 12px 14px;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn.alt {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--brass-dim);
+  }
+  .btn .k {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0;
+    opacity: 0.7;
+  }
+  .code-box {
+    display: grid;
+    gap: 6px;
+  }
+  .code-box label {
+    color: var(--mute);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 1.8rem;
+    letter-spacing: 0.28em;
+    color: var(--brass);
+    border: 1px solid var(--brass-dim);
+    padding: 10px 12px;
+    background: #160f0b;
+    text-align: center;
+  }
+  input.code {
+    width: 100%;
+    caret-color: var(--brass);
+    text-transform: uppercase;
+  }
+  .status {
+    color: var(--mute);
+    font-size: 0.85rem;
+    min-height: 1.2em;
+  }
+  .status.bad { color: var(--danger); }
+  .status.ok { color: var(--ok); }
+
+  .howto {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .howto li {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 10px;
+    align-items: start;
+    color: var(--ink);
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+  .howto b {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--brass);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  footer.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    align-items: center;
+    color: var(--mute);
+    font-size: 0.78rem;
+  }
+  footer.legend strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .swatch {
+    display: inline-block;
+    width: 0.7em;
+    height: 0.7em;
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+  .swatch.cu { background: var(--copper); }
+  .swatch.vd { background: var(--verd); }
+
+  .touch {
+    display: none;
+    position: absolute;
+    inset: auto 8px 8px 8px;
+    pointer-events: none;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .pad {
+    pointer-events: auto;
+    display: grid;
+    grid-template-columns: 44px 44px 44px;
+    grid-template-rows: 44px 44px 44px;
+    gap: 4px;
+  }
+  .pad button {
+    background: rgba(34, 24, 16, 0.8);
+    border: 1px solid var(--line);
+    color: var(--lamp);
+    font-size: 0.85rem;
+  }
+  .pad .u { grid-column: 2; grid-row: 1; }
+  .pad .l { grid-column: 1; grid-row: 2; }
+  .pad .r { grid-column: 3; grid-row: 2; }
+  .pad .d { grid-column: 2; grid-row: 3; }
+  .pad.cu button { border-color: var(--copper-deep); }
+  .pad.vd button { border-color: var(--verd-deep); }
+
+  @media (pointer: coarse) {
+    .touch { display: flex; }
+    footer.legend .keys { display: none; }
+  }
+  @media (max-width: 560px) {
+    .brand .sub { display: none; }
+    .sheet h2 { font-size: 1.9rem; }
+    .pad {
+      grid-template-columns: 40px 40px 40px;
+      grid-template-rows: 40px 40px 40px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Latchwork</h1>
+      <span class="sub">对闩 · 双人解谜</span>
+    </div>
+    <div class="hud-right">
+      <span class="pill" id="levelTag">工台 01</span>
+      <span class="pill" id="modeTag">本地</span>
+      <button class="ghost" id="btnMenu" type="button">菜单</button>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="board" width="800" height="480" aria-label="工台棋盘"></canvas>
+
+    <div class="touch" id="touch">
+      <div class="pad cu" data-who="p1">
+        <button class="u" type="button" data-act="jump">跳</button>
+        <button class="l" type="button" data-act="left">◀</button>
+        <button class="r" type="button" data-act="right">▶</button>
+        <button class="d" type="button" data-act="jump">跳</button>
+      </div>
+      <div class="pad vd" data-who="p2" id="pad2">
+        <button class="u" type="button" data-act="jump">跳</button>
+        <button class="l" type="button" data-act="left">◀</button>
+        <button class="r" type="button" data-act="right">▶</button>
+        <button class="d" type="button" data-act="jump">跳</button>
+      </div>
+    </div>
+
+    <div class="overlay" id="titleScreen">
+      <div class="sheet">
+        <h2>两把钥匙<br>才能开闩</h2>
+        <p class="lede">铜匠走熔池、铜绿走冷水。一人顶闩，另一人起跳过门。进度记在这台浏览器里，下次从上次的工台接着开。</p>
+        <div class="actions">
+          <button class="btn" id="btnLocal" type="button">本地双人 <span class="k">WASD · 方向键</span></button>
+          <button class="btn alt" id="btnFresh" type="button" hidden>从头来过</button>
+          <button class="btn alt" id="btnHost" type="button">创建房间 <span class="k">你是铜匠</span></button>
+          <button class="btn alt" id="btnJoin" type="button">加入房间 <span class="k">你是铜绿</span></button>
+          <button class="btn alt" id="btnHow" type="button">怎么玩</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="howScreen" hidden>
+      <div class="sheet">
+        <h2>工法</h2>
+        <ul class="howto">
+          <li><b>01</b>铜匠 WASD（W 跳），铜绿方向键（上跳）。铜走铜路，绿走绿路。</li>
+          <li><b>02</b>熔池只载铜匠，冷水只载铜绿。绿沼谁踩谁死，整关重来。</li>
+          <li><b>03</b>踏板要人或箱子压着才顶门。对钥格两人同时站上，门会咬死。进自己的门洞过关。</li>
+        </ul>
+        <div class="actions">
+          <button class="btn" id="btnHowBack" type="button">返回</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="hostScreen" hidden>
+      <div class="sheet">
+        <h2>房间已开</h2>
+        <p class="lede">把口令发给同伴。对方在「加入房间」里键入同一串字符。</p>
+        <div class="code-box">
+          <label for="hostCode">房间口令</label>
+          <div class="code" id="hostCode">————</div>
+        </div>
+        <p class="status" id="hostStatus">正在挂上铜闩信令…</p>
+        <div class="actions">
+          <button class="btn alt" id="btnCopy" type="button">复制口令</button>
+          <button class="btn alt" id="btnHostCancel" type="button">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="joinScreen" hidden>
+      <div class="sheet">
+        <h2>入室</h2>
+        <p class="lede">输入同伴屏幕上的四位口令。两边都打开这个页面即可，不必注册。</p>
+        <div class="code-box">
+          <label for="joinCode">房间口令</label>
+          <input class="code" id="joinCode" maxlength="6" autocomplete="off" spellcheck="false" value="">
+        </div>
+        <p class="status" id="joinStatus"></p>
+        <div class="actions">
+          <button class="btn" id="btnJoinGo" type="button">连接</button>
+          <button class="btn alt" id="btnJoinCancel" type="button">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="winScreen" hidden>
+      <div class="sheet">
+        <h2 id="winTitle">闩开了</h2>
+        <p class="lede" id="winLede"></p>
+        <div class="actions">
+          <button class="btn" id="btnNext" type="button">下一工台</button>
+          <button class="btn alt" id="btnReplay" type="button">重做本关</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="deadScreen" hidden>
+      <div class="sheet">
+        <h2 id="deadTitle">没保住</h2>
+        <p class="lede" id="deadLede">熔池烫铜绿，冷水冻铜匠，绿沼谁都吃。整关重来。</p>
+        <div class="actions">
+          <button class="btn" id="btnDeadRetry" type="button">重开本关 <span class="k">R</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="legend">
+    <span id="hint">两人走到各自的门洞。</span>
+    <span class="keys"><span class="swatch cu"></span><strong>铜匠</strong> WASD · W 跳</span>
+    <span class="keys"><span class="swatch vd"></span><strong>铜绿</strong> 方向键 · 上跳</span>
+    <span>R 重开</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const COLS = 20;
+  const ROWS = 12;
+  const TILE = 40;
+  const PW = 20;
+  const PH = 26;
+  const CW = 28;
+  const CH = 28;
+  const MOVE = 2.45;
+  const JUMP = -9.4;
+  const GRAV = 0.42;
+  const MAX_FALL = 11;
+  const COYOTE = 90;
+  const JUMP_CUT = 0.45;
+  const PEER_PREFIX = "lw";
+  const SAVE_KEY = "latchwork.progress";
+  const NET_MS = 50;
+
+  const LEVELS = [
+    {
+      name: "起跳",
+      hint: "W / 上键起跳。跳过绿沼，铜走铜梁，绿走绿梁，进自己的门。",
+      map: [
+        "####################",
+        "#...............A..#",
+        "#..............##..#",
+        "#...........cc.....#",
+        "#1.................#",
+        "##########**########",
+        "#...............B..#",
+        "#..............##..#",
+        "#...........vv.....#",
+        "#2.................#",
+        "##########**########",
+        "####################",
+      ],
+    },
+    {
+      name: "熔冷",
+      hint: "熔池只载铜匠，冷水只载铜绿。踩错或掉进绿沼，整关重来。",
+      map: [
+        "####################",
+        "#...............A..#",
+        "#..............##..#",
+        "#1.................#",
+        "####^^^^^^**^^^^^^##",
+        "####################",
+        "#...............B..#",
+        "#..............##..#",
+        "#2.................#",
+        "####~~~~~~**~~~~~~##",
+        "####################",
+        "####################",
+      ],
+    },
+    {
+      name: "顶闩",
+      hint: "铜匠踩踏板，铜绿的门才开。绿先过门再踩对面踏板，铜才能进门。",
+      map: [
+        "####################",
+        "#...............A..#",
+        "#...........p..##..#",
+        "#1..........p......#",
+        "#####b##############",
+        "####################",
+        "#...............B..#",
+        "#.......q......##..#",
+        "#2......q..........#",
+        "############a#######",
+        "####################",
+        "####################",
+      ],
+    },
+    {
+      name: "配重",
+      hint: "把箱子推到踏板上，两扇门都会一直顶着。然后各自进门。",
+      map: [
+        "####################",
+        "#...............A..#",
+        "#..........p...##..#",
+        "#1..x......p.......#",
+        "######a#############",
+        "####################",
+        "#...............B..#",
+        "#..........p...##..#",
+        "#2.........p.......#",
+        "####################",
+        "####################",
+        "####################",
+      ],
+    },
+    {
+      name: "对开",
+      hint: "两人同时站上对钥格，门会咬死。之后铜走熔池、绿走冷水。",
+      map: [
+        "####################",
+        "#...............A..#",
+        "#..........=...##..#",
+        "#1.........=.......#",
+        "####&^^^^^^#########",
+        "####################",
+        "#...............B..#",
+        "#..........=...##..#",
+        "#2.........=.......#",
+        "####&~~~~~~#########",
+        "####################",
+        "####################",
+      ],
+    },
+  ];
+
+  LEVELS.forEach((lv, i) => {
+    if (lv.map.length !== ROWS) throw new Error("row count " + i);
+    lv.map.forEach((r, y) => {
+      if (r.length !== COLS) throw new Error("col count " + i + ":" + y + " " + r.length);
+    });
+  });
+
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+  const hintEl = document.getElementById("hint");
+  const levelTag = document.getElementById("levelTag");
+  const modeTag = document.getElementById("modeTag");
+
+  const screens = {
+    title: document.getElementById("titleScreen"),
+    how: document.getElementById("howScreen"),
+    host: document.getElementById("hostScreen"),
+    join: document.getElementById("joinScreen"),
+    win: document.getElementById("winScreen"),
+    dead: document.getElementById("deadScreen"),
+  };
+
+  let mode = "local";
+  let screen = "title";
+  let levelIndex = 0;
+  let state = null;
+  let last = 0;
+  let won = false;
+  let dead = false;
+  let deathCause = "";
+  let reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let peer = null;
+  let conn = null;
+  let roomCode = "";
+  let netReady = false;
+  let you = "both";
+  let pulse = 0;
+  let latchFlash = 0;
+  let deathFlash = 0;
+  let audioCtx = null;
+  let netAcc = 0;
+
+  const hold = {
+    p1: { left: false, right: false, jump: false },
+    p2: { left: false, right: false, jump: false },
+  };
+  const jumpLatch = { p1: false, p2: false };
+  const remoteHold = { left: false, right: false, jump: false };
+
+  function loadProgress() {
+    try {
+      const p = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      if (!p || typeof p !== "object") return { current: 0, unlocked: 0 };
+      const unlocked = Math.max(0, Math.min(LEVELS.length, Number(p.unlocked) || 0));
+      const current = Math.max(0, Math.min(LEVELS.length - 1, Number(p.current) || 0));
+      return { current, unlocked };
+    } catch (_) {
+      return { current: 0, unlocked: 0 };
+    }
+  }
+
+  function saveProgress(next) {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(next));
+    } catch (_) {}
+    refreshTitleButtons();
+  }
+
+  function refreshTitleButtons() {
+    const pr = loadProgress();
+    const btn = document.getElementById("btnLocal");
+    const fresh = document.getElementById("btnFresh");
+    const k = btn.querySelector(".k");
+    if (pr.unlocked >= LEVELS.length) {
+      btn.firstChild.textContent = "再走一遍 ";
+      if (k) k.textContent = "已清空";
+      fresh.hidden = false;
+    } else if (pr.current > 0 || pr.unlocked > 0) {
+      const lv = LEVELS[pr.current];
+      btn.firstChild.textContent = "继续工台 " + String(pr.current + 1).padStart(2, "0") + " · " + lv.name + " ";
+      if (k) k.textContent = "已开 " + pr.unlocked + "/" + LEVELS.length;
+      fresh.hidden = false;
+    } else {
+      btn.firstChild.textContent = "本地双人 ";
+      if (k) k.textContent = "WASD · 方向键";
+      fresh.hidden = true;
+    }
+  }
+
+  function show(name) {
+    screen = name;
+    Object.entries(screens).forEach(([k, el]) => {
+      el.hidden = k !== name;
+    });
+    if (name === "play") {
+      Object.values(screens).forEach((el) => { el.hidden = true; });
+      screen = "play";
+    }
+    if (name === "title") refreshTitleButtons();
+  }
+
+  function tone(freq, dur, type, gain) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const t = audioCtx.currentTime;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type || "square";
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(gain || 0.035, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t);
+      o.stop(t + dur);
+    } catch (_) {}
+  }
+
+  function actorAt(tx, ty) {
+    return {
+      x: tx * TILE + (TILE - PW) / 2,
+      y: ty * TILE + TILE - PH,
+      vx: 0,
+      vy: 0,
+      w: PW,
+      h: PH,
+      grounded: false,
+      coyote: 0,
+      face: 1,
+      dead: false,
+    };
+  }
+
+  function parseLevel(index) {
+    const def = LEVELS[index];
+    const grid = def.map.map((r) => r.split(""));
+    const crates = [];
+    let p1 = actorAt(1, 1);
+    let p2 = actorAt(1, 9);
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const t = grid[y][x];
+        if (t === "1") { p1 = actorAt(x, y); grid[y][x] = "."; }
+        if (t === "2") { p2 = actorAt(x, y); grid[y][x] = "."; }
+        if (t === "x") {
+          crates.push({
+            x: x * TILE + (TILE - CW) / 2,
+            y: y * TILE + TILE - CH,
+            vx: 0,
+            vy: 0,
+            w: CW,
+            h: CH,
+            id: crates.length,
+          });
+          grid[y][x] = ".";
+        }
+      }
+    }
+    return { index, grid, p1, p2, crates, dualLocked: false };
+  }
+
+  function cell(st, x, y) {
+    if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return "#";
+    return st.grid[y][x];
+  }
+
+  function tileSolid(st, t, who) {
+    if (t === "#") return true;
+    if (t === "a" || t === "b" || t === "&") return true;
+    if (t === "^" || t === "~" || t === "*") return true;
+    if (t === "c") return who === "p1" || who === "crate";
+    if (t === "v") return who === "p2" || who === "crate";
+    if ((t === "p" || t === "q" || t === "=") && !gateOpen(st, t)) return true;
+    return false;
+  }
+
+  function rectHitsSolid(st, x, y, w, h, who) {
+    const x0 = Math.floor(x / TILE);
+    const y0 = Math.floor(y / TILE);
+    const x1 = Math.floor((x + w - 0.01) / TILE);
+    const y1 = Math.floor((y + h - 0.01) / TILE);
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        if (tileSolid(st, cell(st, tx, ty), who)) return true;
+      }
+    }
+    return false;
+  }
+
+  function bodiesOnTile(st, tx, ty) {
+    const list = [st.p1, st.p2, ...st.crates];
+    return list.some((b) => {
+      const cx = b.x + b.w / 2;
+      const fy = b.y + b.h + 1;
+      return Math.floor(cx / TILE) === tx && Math.floor(fy / TILE) === ty;
+    });
+  }
+
+  function platesDown(st) {
+    const down = { 0: false, 1: false };
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const t = st.grid[y][x];
+        if (t === "a" && bodiesOnTile(st, x, y)) down[0] = true;
+        if (t === "b" && bodiesOnTile(st, x, y)) down[1] = true;
+      }
+    }
+    return down;
+  }
+
+  function gateOpen(st, tile) {
+    const down = platesDown(st);
+    if (tile === "p") return down[0];
+    if (tile === "q") return down[1];
+    if (tile === "=") return st.dualLocked;
+    return true;
+  }
+
+  function overlapsAt(x, y, w, h, b) {
+    return x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y;
+  }
+
+  function otherActor(st, who) {
+    if (who === "p1") return st.p2;
+    if (who === "p2") return st.p1;
+    return null;
+  }
+
+  function blockedAt(st, x, y, w, h, who, ignoreCrate) {
+    if (rectHitsSolid(st, x, y, w, h, who)) return true;
+    const other = otherActor(st, who);
+    if (other && overlapsAt(x, y, w, h, other)) return true;
+    if (who === "crate") {
+      if (overlapsAt(x, y, w, h, st.p1) || overlapsAt(x, y, w, h, st.p2)) return true;
+    } else {
+      const crate = st.crates.find((c) => c !== ignoreCrate && overlapsAt(x, y, w, h, c));
+      if (crate) return true;
+    }
+    return false;
+  }
+
+  function moveBody(st, body, dx, dy, who) {
+    let grounded = false;
+    if (dx !== 0) {
+      if (who !== "crate") {
+        const crate = st.crates.find((c) => overlapsAt(body.x + dx, body.y, body.w, body.h, c));
+        if (crate) {
+          const old = crate.x;
+          crate.x += dx;
+          if (blockedAt(st, crate.x, crate.y, crate.w, crate.h, "crate")) crate.x = old;
+        }
+      }
+      if (blockedAt(st, body.x + dx, body.y, body.w, body.h, who)) body.vx = 0;
+      else body.x += dx;
+    }
+    if (dy !== 0) {
+      if (blockedAt(st, body.x, body.y + dy, body.w, body.h, who)) {
+        if (dy > 0) grounded = true;
+        body.vy = 0;
+      } else body.y += dy;
+    }
+    return grounded;
+  }
+
+  function hazardFor(who, t) {
+    if (t === "*") return "绿沼";
+    if (t === "~" && who === "p1") return "冷水";
+    if (t === "^" && who === "p2") return "熔池";
+    return "";
+  }
+
+  function checkHazard(st, body, who) {
+    const pts = [
+      [body.x + body.w / 2, body.y + body.h - 3],
+      [body.x + 4, body.y + body.h - 3],
+      [body.x + body.w - 4, body.y + body.h - 3],
+      [body.x + body.w / 2, body.y + body.h + 2],
+    ];
+    for (let i = 0; i < pts.length; i++) {
+      const tx = Math.floor(pts[i][0] / TILE);
+      const ty = Math.floor(pts[i][1] / TILE);
+      const cause = hazardFor(who, cell(st, tx, ty));
+      if (cause) return cause;
+    }
+    return "";
+  }
+
+  function inExit(st, body, letter) {
+    const cx = body.x + body.w / 2;
+    const cy = body.y + body.h / 2;
+    return cell(st, Math.floor(cx / TILE), Math.floor(cy / TILE)) === letter;
+  }
+
+  function checkDual(st) {
+    if (st.dualLocked) return;
+    const pads = [];
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (st.grid[y][x] === "&") pads.push({ x, y });
+      }
+    }
+    if (pads.length < 2) return;
+    const onPad = (body) => {
+      const cx = body.x + body.w / 2;
+      const fy = body.y + body.h + 1;
+      const tx = Math.floor(cx / TILE);
+      const ty = Math.floor(fy / TILE);
+      return pads.some((p) => p.x === tx && p.y === ty);
+    };
+    if (onPad(st.p1) && onPad(st.p2)) {
+      st.dualLocked = true;
+      latchFlash = 1;
+      tone(180, 0.18, "square", 0.05);
+      setTimeout(() => tone(320, 0.2, "square", 0.04), 90);
+    }
+  }
+
+  function controlFor(who) {
+    if (mode === "local") return hold[who];
+    if (mode === "host") return who === "p1" ? hold.p1 : remoteHold;
+    return hold[who];
+  }
+
+  function stepActor(st, who, dt) {
+    const p = st[who];
+    const c = controlFor(who);
+    const air = reduced ? 1 : dt / 16.67;
+    let ax = 0;
+    if (c.left) ax -= 1;
+    if (c.right) ax += 1;
+    if (ax !== 0) p.face = ax;
+    p.vx = ax * MOVE;
+    p.vy = Math.min(MAX_FALL, p.vy + GRAV * air);
+    if (p.grounded) p.coyote = COYOTE;
+    else p.coyote = Math.max(0, p.coyote - dt);
+    const wantJump = c.jump && !jumpLatch[who];
+    if (wantJump && p.coyote > 0) {
+      p.vy = JUMP;
+      p.grounded = false;
+      p.coyote = 0;
+      tone(210, 0.06, "square", 0.025);
+    }
+    jumpLatch[who] = c.jump;
+    if (!c.jump && p.vy < 0) p.vy += GRAV * air * JUMP_CUT;
+    moveBody(st, p, p.vx * air, 0, who);
+    p.grounded = moveBody(st, p, 0, p.vy * air, who);
+    const cause = checkHazard(st, p, who);
+    if (cause) {
+      p.dead = true;
+      return cause;
+    }
+    return "";
+  }
+
+  function stepCrate(st, crate, dt) {
+    const air = reduced ? 1 : dt / 16.67;
+    crate.vy = Math.min(MAX_FALL, crate.vy + GRAV * air);
+    crate.vx *= 0.7;
+    moveBody(st, crate, crate.vx * air, 0, "crate");
+    moveBody(st, crate, 0, crate.vy * air, "crate");
+  }
+
+  function stepSim(dt) {
+    if (!state || won || dead || screen !== "play") return;
+    if (mode === "guest") return;
+    const c1 = stepActor(state, "p1", dt);
+    const c2 = stepActor(state, "p2", dt);
+    state.crates.forEach((c) => stepCrate(state, c, dt));
+    checkDual(state);
+    if (c1 || c2) {
+      onDeath(c1 || c2);
+      return;
+    }
+    if (inExit(state, state.p1, "A") && inExit(state, state.p2, "B")) onWin();
+  }
+
+  function snapshot() {
+    return {
+      t: "state",
+      levelIndex,
+      state: {
+        index: state.index,
+        grid: state.grid,
+        p1: { ...state.p1 },
+        p2: { ...state.p2 },
+        crates: state.crates.map((c) => ({ ...c })),
+        dualLocked: state.dualLocked,
+      },
+      won,
+      dead,
+      deathCause,
+    };
+  }
+
+  function send(msg) {
+    if (conn && conn.open) {
+      try { conn.send(msg); } catch (_) {}
+    }
+  }
+
+  function persistCurrent(i) {
+    const pr = loadProgress();
+    pr.current = i;
+    saveProgress(pr);
+  }
+
+  function onWin() {
+    if (won) return;
+    won = true;
+    const lastLv = levelIndex >= LEVELS.length - 1;
+    const pr = loadProgress();
+    pr.unlocked = Math.max(pr.unlocked, levelIndex + 1);
+    pr.current = lastLv ? levelIndex : levelIndex + 1;
+    saveProgress(pr);
+    document.getElementById("winTitle").textContent = lastLv ? "工台清空" : "闩开了";
+    document.getElementById("winLede").textContent = lastLv
+      ? "五道闩全部打开。进度已记下。把网址发给下一位想一起拧钥匙的人。"
+      : "门洞对齐。进度已记下，下次从下一张工台接着开。";
+    document.getElementById("btnNext").hidden = lastLv || mode === "guest";
+    show("win");
+    tone(360, 0.16, "triangle", 0.05);
+    setTimeout(() => tone(480, 0.22, "triangle", 0.05), 120);
+    if (mode === "host") send(snapshot());
+  }
+
+  function onDeath(cause) {
+    if (dead || won) return;
+    dead = true;
+    deathCause = cause;
+    deathFlash = 1;
+    const who = cause === "冷水" ? "铜匠" : cause === "熔池" ? "铜绿" : "两人";
+    document.getElementById("deadTitle").textContent = cause + "吞了人";
+    document.getElementById("deadLede").textContent = who + "掉进了" + cause + "。整张工台重来，进度还在。";
+    show("dead");
+    tone(90, 0.28, "sawtooth", 0.05);
+    if (mode === "host") send(snapshot());
+  }
+
+  function loadLevel(i) {
+    levelIndex = i;
+    state = parseLevel(i);
+    won = false;
+    dead = false;
+    deathCause = "";
+    deathFlash = 0;
+    latchFlash = 0;
+    jumpLatch.p1 = false;
+    jumpLatch.p2 = false;
+    levelTag.textContent = "工台 " + String(i + 1).padStart(2, "0") + " · " + LEVELS[i].name;
+    hintEl.textContent = LEVELS[i].hint;
+    persistCurrent(i);
+    show("play");
+    if (mode === "host") send({ t: "load", levelIndex: i });
+  }
+
+  function setModeLabel() {
+    if (mode === "local") modeTag.textContent = "本地";
+    else if (mode === "host") modeTag.textContent = "房主 · " + roomCode;
+    else modeTag.textContent = "入室 · " + roomCode;
+    const pad2 = document.getElementById("pad2");
+    const pad1 = document.querySelector(".pad.cu");
+    if (mode === "local") {
+      pad1.style.visibility = "visible";
+      pad2.style.visibility = "visible";
+    } else {
+      pad1.style.visibility = you === "p1" ? "visible" : "hidden";
+      pad2.style.visibility = you === "p2" ? "visible" : "hidden";
+    }
+  }
+
+  function destroyPeer() {
+    netReady = false;
+    try { if (conn) conn.close(); } catch (_) {}
+    try { if (peer) peer.destroy(); } catch (_) {}
+    conn = null;
+    peer = null;
+  }
+
+  function startLevelFromSave() {
+    const pr = loadProgress();
+    if (pr.unlocked >= LEVELS.length) loadLevel(0);
+    else loadLevel(pr.current);
+  }
+
+  function onNetOpen(asHost) {
+    if (netReady) return;
+    netReady = true;
+    document.getElementById("hostStatus").textContent = "铜绿已入室。";
+    document.getElementById("hostStatus").className = "status ok";
+    document.getElementById("joinStatus").textContent = "已接上。";
+    document.getElementById("joinStatus").className = "status ok";
+    if (asHost) {
+      startLevelFromSave();
+      send(snapshot());
+    }
+  }
+
+  function applyRemoteState(msg) {
+    levelIndex = msg.levelIndex;
+    state = msg.state;
+    deathCause = msg.deathCause || "";
+    levelTag.textContent = "工台 " + String(levelIndex + 1).padStart(2, "0") + " · " + LEVELS[levelIndex].name;
+    hintEl.textContent = LEVELS[levelIndex].hint;
+    if (msg.won) {
+      if (!won) onWin();
+    } else if (msg.dead) {
+      if (!dead) onDeath(deathCause || "池子");
+    } else {
+      won = false;
+      dead = false;
+      show("play");
+    }
+  }
+
+  function wireConn(c, asHost) {
+    conn = c;
+    c.on("open", () => onNetOpen(asHost));
+    if (c.open) onNetOpen(asHost);
+    c.on("data", (msg) => {
+      if (!msg || typeof msg !== "object") return;
+      if (mode === "host") {
+        if (msg.t === "input") {
+          remoteHold.left = !!msg.left;
+          remoteHold.right = !!msg.right;
+          remoteHold.jump = !!msg.jump;
+        }
+        if (msg.t === "restart") loadLevel(levelIndex);
+      } else {
+        if (msg.t === "state") applyRemoteState(msg);
+        if (msg.t === "load") loadLevel(msg.levelIndex);
+      }
+    });
+    c.on("close", () => {
+      netReady = false;
+      hintEl.textContent = "对方断开。可回菜单重开房间。";
+    });
+    c.on("error", () => {
+      hintEl.textContent = "连接出错。可改用本地双人。";
+    });
+  }
+
+  function makeCode() {
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let s = "";
+    for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  }
+
+  function startHost() {
+    destroyPeer();
+    roomCode = makeCode();
+    document.getElementById("hostCode").textContent = roomCode;
+    document.getElementById("hostStatus").textContent = "正在挂上铜闩信令…";
+    document.getElementById("hostStatus").className = "status";
+    show("host");
+    if (typeof Peer === "undefined") {
+      document.getElementById("hostStatus").textContent = "联机库未加载，请改用本地双人，或用本地服务器打开页面。";
+      document.getElementById("hostStatus").className = "status bad";
+      return;
+    }
+    peer = new Peer(PEER_PREFIX + roomCode.toLowerCase(), { debug: 0 });
+    peer.on("open", () => {
+      document.getElementById("hostStatus").textContent = "等待铜绿入室…";
+    });
+    peer.on("connection", (c) => wireConn(c, true));
+    peer.on("error", (err) => {
+      document.getElementById("hostStatus").textContent = "无法开房（" + (err.type || "error") + "）。换一口令或改用本地。";
+      document.getElementById("hostStatus").className = "status bad";
+    });
+    mode = "host";
+    you = "p1";
+    setModeLabel();
+  }
+
+  function startJoin(code) {
+    destroyPeer();
+    roomCode = code.trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}$/.test(roomCode)) {
+      document.getElementById("joinStatus").textContent = "口令应是四位字母或数字。";
+      document.getElementById("joinStatus").className = "status bad";
+      return;
+    }
+    document.getElementById("joinStatus").textContent = "正在找房间…";
+    document.getElementById("joinStatus").className = "status";
+    if (typeof Peer === "undefined") {
+      document.getElementById("joinStatus").textContent = "联机库未加载。请用网址打开，不要直接双击文件。";
+      document.getElementById("joinStatus").className = "status bad";
+      return;
+    }
+    peer = new Peer({ debug: 0 });
+    peer.on("open", () => {
+      const c = peer.connect(PEER_PREFIX + roomCode.toLowerCase(), { reliable: true });
+      wireConn(c, false);
+    });
+    peer.on("error", (err) => {
+      document.getElementById("joinStatus").textContent = "找不到房间（" + (err.type || "error") + "）。核对口令，两边都要用 https 打开。";
+      document.getElementById("joinStatus").className = "status bad";
+    });
+    mode = "guest";
+    you = "p2";
+    setModeLabel();
+  }
+
+  function sendGuestInput() {
+    if (mode !== "guest") return;
+    send({ t: "input", left: hold.p2.left, right: hold.p2.right, jump: hold.p2.jump });
+  }
+
+  function bindKey(who, act, down) {
+    if (mode === "host") who = "p1";
+    if (mode === "guest") who = "p2";
+    hold[who][act] = down;
+    if (mode === "guest") sendGuestInput();
+  }
+
+  const keyToAct = {
+    w: ["p1", "jump"],
+    a: ["p1", "left"],
+    d: ["p1", "right"],
+    arrowup: ["p2", "jump"],
+    arrowleft: ["p2", "left"],
+    arrowright: ["p2", "right"],
+  };
+
+  window.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    if (k === "r" && (screen === "play" || screen === "dead" || screen === "win")) {
+      if (mode === "guest") send({ t: "restart" });
+      else loadLevel(levelIndex);
+      e.preventDefault();
+      return;
+    }
+    if (k === "escape") {
+      show("title");
+      e.preventDefault();
+      return;
+    }
+    if (k === "enter" && screen === "join") {
+      startJoin(document.getElementById("joinCode").value);
+      return;
+    }
+    if (screen === "join" || screen === "host") return;
+    const bind = keyToAct[k];
+    if (!bind) return;
+    bindKey(bind[0], bind[1], true);
+    e.preventDefault();
+  });
+  window.addEventListener("keyup", (e) => {
+    const bind = keyToAct[e.key.toLowerCase()];
+    if (!bind) return;
+    bindKey(bind[0], bind[1], false);
+  });
+  window.addEventListener("blur", () => {
+    hold.p1.left = hold.p1.right = hold.p1.jump = false;
+    hold.p2.left = hold.p2.right = hold.p2.jump = false;
+  });
+
+  document.getElementById("touch").addEventListener("pointerdown", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    b.setPointerCapture(e.pointerId);
+    const pad = b.parentElement;
+    bindKey(pad.dataset.who, b.dataset.act, true);
+  });
+  document.getElementById("touch").addEventListener("pointerup", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    const pad = b.parentElement;
+    bindKey(pad.dataset.who, b.dataset.act, false);
+  });
+  document.getElementById("touch").addEventListener("pointercancel", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    bindKey(b.parentElement.dataset.who, b.dataset.act, false);
+  });
+
+  function startLocal(fromStart) {
+    destroyPeer();
+    mode = "local";
+    you = "both";
+    setModeLabel();
+    if (fromStart) saveProgress({ current: 0, unlocked: loadProgress().unlocked });
+    startLevelFromSave();
+  }
+
+  document.getElementById("btnLocal").onclick = () => startLocal(false);
+  document.getElementById("btnFresh").onclick = () => {
+    saveProgress({ current: 0, unlocked: 0 });
+    startLocal(true);
+  };
+  document.getElementById("btnHost").onclick = startHost;
+  document.getElementById("btnJoin").onclick = () => {
+    document.getElementById("joinStatus").textContent = "";
+    document.getElementById("joinCode").value = "";
+    show("join");
+    document.getElementById("joinCode").focus();
+  };
+  document.getElementById("btnHow").onclick = () => show("how");
+  document.getElementById("btnHowBack").onclick = () => show("title");
+  document.getElementById("btnHostCancel").onclick = () => { destroyPeer(); show("title"); };
+  document.getElementById("btnJoinCancel").onclick = () => { destroyPeer(); show("title"); };
+  document.getElementById("btnJoinGo").onclick = () => startJoin(document.getElementById("joinCode").value);
+  document.getElementById("btnCopy").onclick = async () => {
+    const url = location.origin + location.pathname + "?room=" + roomCode;
+    const text = roomCode + "  " + url;
+    try {
+      await navigator.clipboard.writeText(text);
+      document.getElementById("hostStatus").textContent = "口令与链接已复制。";
+      document.getElementById("hostStatus").className = "status ok";
+    } catch (_) {
+      document.getElementById("hostStatus").textContent = "复制失败，请手动抄写口令。";
+    }
+  };
+  document.getElementById("btnMenu").onclick = () => show("title");
+  document.getElementById("btnNext").onclick = () => {
+    if (mode === "guest") return;
+    loadLevel(Math.min(levelIndex + 1, LEVELS.length - 1));
+  };
+  document.getElementById("btnReplay").onclick = () => {
+    if (mode === "guest") send({ t: "restart" });
+    else loadLevel(levelIndex);
+  };
+  document.getElementById("btnDeadRetry").onclick = () => {
+    if (mode === "guest") send({ t: "restart" });
+    else loadLevel(levelIndex);
+  };
+
+  function drawPool(px, py, color, glow) {
+    ctx.fillStyle = glow;
+    ctx.fillRect(px + 2, py + 10, TILE - 4, TILE - 12);
+    ctx.fillStyle = color;
+    ctx.fillRect(px + 4, py + 16, TILE - 8, TILE - 20);
+    const w = 6 + Math.sin(pulse / 180 + px) * 3;
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.fillRect(px + 8, py + 14, w, 3);
+  }
+
+  function drawTile(x, y, t, st) {
+    const px = x * TILE;
+    const py = y * TILE;
+    const open = gateOpen(st, t);
+    if (t === "#") {
+      ctx.fillStyle = "#3a2b22";
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = "#4a382c";
+      ctx.fillRect(px + 3, py + 3, TILE - 6, 10);
+      ctx.fillStyle = "#b08a4a";
+      ctx.fillRect(px + 6, py + 6, 3, 3);
+      return;
+    }
+    ctx.fillStyle = "#1a120e";
+    ctx.fillRect(px, py, TILE, TILE);
+    if ((x + y) % 7 === 0) {
+      ctx.fillStyle = "rgba(212,168,90,0.04)";
+      ctx.fillRect(px + 12, py + 4, 2, 10);
+    }
+    if (t === "c") {
+      ctx.fillStyle = "#9a4a28";
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = "rgba(224,122,69,0.9)";
+      ctx.fillRect(px + 2, py + 2, TILE - 4, 10);
+    }
+    if (t === "v") {
+      ctx.fillStyle = "#1e5e52";
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = "rgba(58,166,142,0.9)";
+      ctx.fillRect(px + 2, py + 2, TILE - 4, 10);
+    }
+    if (t === "a" || t === "b") {
+      const down = platesDown(st)[t === "a" ? 0 : 1];
+      ctx.fillStyle = "#3a2b22";
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = down ? "#d4a85a" : "#5a4030";
+      ctx.fillRect(px + 6, py + 4, TILE - 12, down ? 8 : 12);
+      ctx.strokeStyle = "#d4a85a";
+      ctx.strokeRect(px + 6.5, py + 4.5, TILE - 13, down ? 7 : 11);
+    }
+    if (t === "&") {
+      ctx.fillStyle = "#3a2b22";
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.strokeStyle = st.dualLocked ? "#d4a85a" : "#8d7b68";
+      ctx.strokeRect(px + 8, py + 8, TILE - 16, TILE - 16);
+    }
+    if (t === "^") drawPool(px, py, "#e07a45", "rgba(224,122,69,0.35)");
+    if (t === "~") drawPool(px, py, "#3aa68e", "rgba(58,166,142,0.35)");
+    if (t === "*") drawPool(px, py, "#6a8a38", "rgba(120,160,50,0.4)");
+    if (t === "p" || t === "q" || t === "=") {
+      if (!open) {
+        ctx.fillStyle = "#c4a05a";
+        ctx.fillRect(px + 12, py + 2, 16, TILE - 4);
+        ctx.fillStyle = "#8a6a38";
+        ctx.fillRect(px + 18, py + 8, 4, TILE - 16);
+      } else {
+        ctx.fillStyle = "rgba(196,160,90,0.2)";
+        ctx.fillRect(px + 16, py + 2, 6, 10);
+      }
+    }
+    if (t === "A" || t === "B") {
+      ctx.fillStyle = t === "A" ? "rgba(224,122,69,0.55)" : "rgba(58,166,142,0.55)";
+      ctx.beginPath();
+      ctx.moveTo(px + 8, py + TILE - 2);
+      ctx.lineTo(px + 8, py + 12);
+      ctx.quadraticCurveTo(px + TILE / 2, py + 2, px + TILE - 8, py + 12);
+      ctx.lineTo(px + TILE - 8, py + TILE - 2);
+      ctx.fill();
+    }
+  }
+
+  function drawActor(p, copper) {
+    const x = p.x;
+    const y = p.y;
+    ctx.fillStyle = copper ? "#e07a45" : "#3aa68e";
+    ctx.fillRect(x, y + 6, p.w, p.h - 6);
+    ctx.beginPath();
+    ctx.arc(x + p.w / 2, y + 8, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#140e0a";
+    ctx.fillRect(x + 4, y + 8, 3, 3);
+    ctx.fillRect(x + p.w - 7, y + 8, 3, 3);
+    ctx.fillStyle = "#f6d7a0";
+    ctx.fillRect(x + p.w / 2 + p.face * 4, y + 16, 3, 6);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#140e0a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!state) return;
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) drawTile(x, y, state.grid[y][x], state);
+    }
+    state.crates.forEach((c) => {
+      ctx.fillStyle = "#6a4a30";
+      ctx.fillRect(c.x, c.y, c.w, c.h);
+      ctx.strokeStyle = "#d4a85a";
+      ctx.strokeRect(c.x + 0.5, c.y + 0.5, c.w - 1, c.h - 1);
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y);
+      ctx.lineTo(c.x + c.w, c.y + c.h);
+      ctx.stroke();
+    });
+    drawActor(state.p1, true);
+    drawActor(state.p2, false);
+    if (latchFlash > 0) {
+      ctx.fillStyle = "rgba(212,168,90," + (latchFlash * 0.25) + ")";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (deathFlash > 0) {
+      ctx.fillStyle = "rgba(196,92,72," + (deathFlash * 0.35) + ")";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  function loop(ts) {
+    const dt = Math.min(40, ts - last || 16);
+    last = ts;
+    pulse += dt;
+    stepSim(dt);
+    if (latchFlash > 0) latchFlash = Math.max(0, latchFlash - dt / 400);
+    if (deathFlash > 0) deathFlash = Math.max(0, deathFlash - dt / 500);
+    if (mode === "host" && netReady && screen === "play") {
+      netAcc += dt;
+      if (netAcc >= NET_MS) {
+        netAcc = 0;
+        send(snapshot());
+      }
+    }
+    if (mode === "guest" && netReady && screen === "play") {
+      netAcc += dt;
+      if (netAcc >= NET_MS) {
+        netAcc = 0;
+        sendGuestInput();
+      }
+    }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function fitCanvas() {
+    const stage = document.getElementById("stage");
+    const maxW = stage.clientWidth - 16;
+    const maxH = stage.clientHeight - 16;
+    const w = COLS * TILE;
+    const h = ROWS * TILE;
+    canvas.width = w;
+    canvas.height = h;
+    const s = Math.min(maxW / w, maxH / h, 1.15);
+    canvas.style.width = Math.floor(w * s) + "px";
+    canvas.style.height = Math.floor(h * s) + "px";
+  }
+  window.addEventListener("resize", fitCanvas);
+
+  function boot(saved) {
+    fitCanvas();
+    refreshTitleButtons();
+    if (saved && saved.screen === "play" && typeof saved.levelIndex === "number") {
+      mode = "local";
+      you = "both";
+      setModeLabel();
+      loadLevel(saved.levelIndex);
+    } else {
+      show("title");
+      state = parseLevel(loadProgress().current);
+      draw();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
+    window.claude.hot.snapshot(() => ({
+      screen,
+      levelIndex,
+    }));
+  }
+  if (window.claude && window.claude.hot && window.claude.hot.ready) {
+    window.claude.hot.ready(boot);
+  } else {
+    boot((window.claude && window.claude.hot && window.claude.hot.data) || {});
+  }
+
+  const params = new URLSearchParams(location.search);
+  const qRoom = params.get("room");
+  if (qRoom) {
+    show("join");
+    document.getElementById("joinCode").value = qRoom.toUpperCase();
+  }
+})();
+</script>
+</body>
+</html>
